@@ -211,13 +211,15 @@ def intprod(x):
     return int(np.prod(x))
 
 def flatgrad(loss, var_list, clip_norm=None):
-    grads = tf.gradients(loss, var_list)
+    grads = tf.gradients(loss, var_list, name="calculate_gradients")
     if clip_norm is not None:
-        grads = [tf.clip_by_norm(grad, clip_norm=clip_norm) for grad in grads]
-    return tf.concat(axis=0, values=[
-        tf.reshape(grad if grad is not None else tf.zeros_like(v), [numel(v)])
-        for (v, grad) in zip(var_list, grads)
-    ])
+        with tf.name_scope("clip_gradients"):
+            grads = [tf.clip_by_norm(grad, clip_norm=clip_norm) for grad in grads]
+    with tf.name_scope("concatenate_gradients"):
+        return tf.concat(axis=0, values=[
+            tf.reshape(grad if grad is not None else tf.zeros_like(v), [numel(v)])
+            for (v, grad) in zip(var_list, grads)
+        ])
 
 class SetFromFlat(object):
     def __init__(self, var_list, dtype=tf.float32):
@@ -264,7 +266,7 @@ def flattenallbut0(x):
 
 
 # ================================================================
-# Diagnostics 
+# Diagnostics
 # ================================================================
 
 def display_var_info(vars):
@@ -277,4 +279,3 @@ def display_var_info(vars):
         if "/b:" in name: continue    # Wx+b, bias is not interesting to look at => count params, but not print
         logger.info("    %s%s%s" % (name, " "*(55-len(name)), str(v.shape)))
     logger.info("Total model parameters: %0.1f million" % (count_params*1e-6))
-

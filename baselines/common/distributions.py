@@ -179,7 +179,9 @@ class DiagGaussianPd(Pd):
         self.flat = flat
         mean, logstd = tf.split(axis=len(flat.shape)-1, num_or_size_splits=2, value=flat)
         self.mean = mean
-        self.logstd = logstd
+        tf.summary.histogram("mean", mean);
+        self.logstd = tf.clip_by_value(logstd, -6, 2, name="clipped_log_std");
+        tf.summary.histogram("logstd", self.logstd);
         self.std = tf.exp(logstd)
     def flatparam(self):
         return self.flat
@@ -195,7 +197,7 @@ class DiagGaussianPd(Pd):
     def entropy(self):
         return tf.reduce_sum(self.logstd + .5 * np.log(2.0 * np.pi * np.e), axis=-1)
     def sample(self):
-        return self.mean + self.std * tf.random_normal(tf.shape(self.mean))
+        return tf.random_normal(tf.shape(self.mean), mean=self.mean, stddev=self.std)
     @classmethod
     def fromflat(cls, flat):
         return cls(flat)
@@ -292,4 +294,3 @@ def validate_probtype(probtype, pdparam):
     klval_ll_stderr = logliks.std() / np.sqrt(N) #pylint: disable=E1101
     assert np.abs(klval - klval_ll) < 3 * klval_ll_stderr # within 3 sigmas
     print('ok on', probtype, pdparam)
-

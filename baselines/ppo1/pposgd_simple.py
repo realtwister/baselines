@@ -9,6 +9,7 @@ from mpi4py import MPI
 from collections import deque
 
 def traj_segment_generator(pi, env, horizon, stochastic):
+    #NTS: Sort of a runner for the algorithm?
     t = 0
     ac = env.action_space.sample() # not used, just so we have the datatype
     new = True # marks if we're on first timestep of an episode
@@ -23,6 +24,7 @@ def traj_segment_generator(pi, env, horizon, stochastic):
     obs = np.array([ob for _ in range(horizon)])
     rews = np.zeros(horizon, 'float32')
     vpreds = np.zeros(horizon, 'float32')
+
     news = np.zeros(horizon, 'int32')
     acs = np.array([ac for _ in range(horizon)])
     prevacs = acs.copy()
@@ -50,6 +52,7 @@ def traj_segment_generator(pi, env, horizon, stochastic):
 
         ob, rew, new, _ = env.step(ac)
         rews[i] = rew
+        #env.render();
 
         cur_ep_ret += rew
         cur_ep_len += 1
@@ -175,14 +178,14 @@ def learn(env, policy_fn, *,
 
         assign_old_eq_new() # set old parameter values to new parameter values
         logger.log("Optimizing...")
-        logger.log(fmt_row(13, loss_names))
+        logger.log(fmt_row(13, loss_names+['pol_tar', 'val_tar']))
         # Here we do a bunch of optimization epochs over the data
         for _ in range(optim_epochs):
             losses = [] # list of tuples, each of which gives the loss for a minibatch
             for batch in d.iterate_once(optim_batchsize):
                 *newlosses, g = lossandgrad(batch["ob"], batch["ac"], batch["atarg"], batch["vtarg"], cur_lrmult)
                 adam.update(g, optim_stepsize * cur_lrmult)
-                losses.append(newlosses)
+                losses.append(newlosses+[np.mean(batch["atarg"]), np.mean(batch["vtarg"])])
             logger.log(fmt_row(13, np.mean(losses, axis=0)))
 
         logger.log("Evaluating losses...")
